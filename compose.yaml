@@ -1,0 +1,32 @@
+name: nexusrouter
+
+services:
+  nexusrouter:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      args:
+        # Stamp the binary with a real version. Set NEXUSROUTER_VERSION to your
+        # release tag (e.g. v0.1.6) when building; defaults to "dev" otherwise.
+        VERSION: ${NEXUSROUTER_VERSION:-dev}
+        # Coolify auto-injects SOURCE_COMMIT (deployed git SHA). When no explicit
+        # VERSION is given, the Dockerfile falls back to this so the dashboard
+        # shows the commit instead of "dev".
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-}
+    image: ${NEXUSROUTER_IMAGE:-ghcr.io/ardhycrjr24/nexusrouter:latest}
+    restart: unless-stopped
+    ports:
+      - "${NEXUSROUTER_PORT:-20180}:20180"
+    volumes:
+      - nexusrouter-data:/data
+    environment:
+      NEXUSROUTER_DATA__DIR: /data
+      NEXUSROUTER_SERVER__HOST: 0.0.0.0
+      NEXUSROUTER_SERVER__PORT: 20180
+      NEXUSROUTER_SECURITY__BIND_LOOPBACK_ONLY: ${NEXUSROUTER_BIND_LOOPBACK_ONLY:-false}
+      NEXUSROUTER_SECURITY__ALLOW_PRIVATE_BASE_URL: ${NEXUSROUTER_SECURITY__ALLOW_PRIVATE_BASE_URL:-false}
+      NEXUSROUTER_SECURITY__MASTER_KEY: ${NEXUSROUTER_MASTER_KEY:-}
+      NEXUSROUTER_LOG__FORMAT: ${NEXUSROUTER_LOG_FORMAT:-json}
+
+volumes:
+  nexusrouter-data:

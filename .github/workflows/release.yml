@@ -1,0 +1,223 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: "1.24"
+  NODE_VERSION: "20"
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci --quiet
+          npm run build
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          cd backend
+          go build -trimpath -ldflags="-s -w -X main.Version=${VERSION}" -o ../nexusrouter ./cmd/nexusrouter
+
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          ARCHIVE="nexusrouter_${VERSION}_${MATRIX_GOOS}_${MATRIX_GOARCH}.tar.gz"
+          mkdir -p dist/nexusrouter/frontend
+          cp nexusrouter dist/nexusrouter/
+          cp -R frontend/dist dist/nexusrouter/frontend/
+          cd dist && tar -czf "../${ARCHIVE}" nexusrouter
+          echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
+        env:
+          MATRIX_GOOS: ${{ matrix.goos }}
+          MATRIX_GOARCH: ${{ matrix.goarch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexusrouter-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ env.ARCHIVE }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum *.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Generate changelog
+        id: changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: CHANGES.md
+
+      - name: Bump VERSION file
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "${VERSION}" > backend/internal/version/VERSION
+          echo "VERSION file updated to ${VERSION}"
+
+      - name: Update CHANGELOG.md
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          NEW_ENTRY=$(cat CHANGES.md)
+
+          # Prepend the new release entry after the header
+          {
+            echo "# Changelog"
+            echo ""
+            echo "All notable changes to this project will be documented in this file."
+            echo ""
+            echo "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),"
+            echo "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."
+            echo ""
+            echo "${NEW_ENTRY}"
+            # Append existing entries (skip the header lines)
+            if [ -f CHANGELOG.md ]; then
+              tail -n +8 CHANGELOG.md
+            fi
+          } > CHANGELOG.new
+          mv CHANGELOG.new CHANGELOG.md
+          echo "CHANGELOG.md updated for ${VERSION}"
+          head -20 CHANGELOG.md
+
+      - name: Commit CHANGELOG.md and VERSION
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          branch: main
+          commit_message: "docs: update CHANGELOG.md and VERSION for ${{ github.ref_name }}"
+          file_pattern: CHANGELOG.md backend/internal/version/VERSION
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: CHANGES.md
+          files: |
+            artifacts/*.tar.gz
+            artifacts/checksums.txt
+
+      - name: Update Homebrew formula
+        run: |
+          VER="${GITHUB_REF#refs/tags/v}"
+
+          DARWIN_ARM64=$(grep "darwin_arm64" artifacts/checksums.txt | awk '{print $1}')
+          DARWIN_AMD64=$(grep "darwin_amd64" artifacts/checksums.txt | awk '{print $1}')
+          LINUX_ARM64=$(grep "linux_arm64" artifacts/checksums.txt | awk '{print $1}')
+          LINUX_AMD64=$(grep "linux_amd64" artifacts/checksums.txt | awk '{print $1}')
+
+          cat > Formula/nexusrouter.rb <<EOF
+          # Auto-updated by release.yml on tag v${VER}. Do not edit manually.
+          class Keirouter < Formula
+            desc "AI API router — unified gateway for 20+ LLM providers with fallback, caching, and dashboard"
+            homepage "https://github.com/ardhycrjr24/nexusrouter"
+            version "${VER}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/ardhycrjr24/nexusrouter/releases/download/v${VER}/nexusrouter_v${VER}_darwin_arm64.tar.gz"
+                sha256 "${DARWIN_ARM64}"
+              else
+                url "https://github.com/ardhycrjr24/nexusrouter/releases/download/v${VER}/nexusrouter_v${VER}_darwin_amd64.tar.gz"
+                sha256 "${DARWIN_AMD64}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/ardhycrjr24/nexusrouter/releases/download/v${VER}/nexusrouter_v${VER}_linux_arm64.tar.gz"
+                sha256 "${LINUX_ARM64}"
+              else
+                url "https://github.com/ardhycrjr24/nexusrouter/releases/download/v${VER}/nexusrouter_v${VER}_linux_amd64.tar.gz"
+                sha256 "${LINUX_AMD64}"
+              end
+            end
+
+            def install
+              bin.install "nexusrouter"
+              (share/"nexusrouter").install "frontend"
+            end
+
+            def caveats
+              <<~EOS
+                Quick start:
+                  nexusrouter -bootstrap    # create your first API key
+                  nexusrouter               # start server on :20180
+
+                Dashboard: http://localhost:20180  (default password: nexusrouter)
+              EOS
+            end
+
+            test do
+              assert_match "NexusRouter", shell_output("\#{bin}/nexusrouter --help 2>&1", 2)
+            end
+          end
+          EOF
+
+          # Strip leading whitespace from heredoc (GitHub Actions indents the block)
+          sed -i 's/^          //' Formula/nexusrouter.rb
+
+          echo "Updated Formula/nexusrouter.rb for v${VER}"
+          cat Formula/nexusrouter.rb
+
+      - name: Commit updated formula
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          branch: main
+          commit_message: "chore: update Homebrew formula for ${{ github.ref_name }}"
+          file_pattern: Formula/nexusrouter.rb

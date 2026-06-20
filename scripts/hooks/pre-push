@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+# pre-push hook — runs frontend typecheck and backend vet before allowing push.
+# Install with: make hooks
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# --- Frontend typecheck ---
+if [ -d "$REPO_ROOT/frontend/node_modules" ]; then
+  echo "🔍 Running frontend typecheck…"
+  if ! (cd "$REPO_ROOT/frontend" && npx tsc -b --noEmit 2>&1); then
+    echo ""
+    echo "❌ Frontend typecheck failed. Fix the errors above before pushing."
+    exit 1
+  fi
+  echo "✅ Frontend typecheck passed"
+else
+  echo "⚠️  Skipping frontend typecheck (node_modules not found — run 'make install')"
+fi
+
+# --- Backend vet ---
+echo "🔍 Running backend vet…"
+if ! (cd "$REPO_ROOT/backend" && go vet ./... 2>&1); then
+  echo ""
+  echo "❌ Backend vet failed. Fix the errors above before pushing."
+  exit 1
+fi
+echo "✅ Backend vet passed"
+
+echo ""
+echo "✅ All pre-push checks passed"

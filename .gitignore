@@ -1,0 +1,57 @@
+# Reference material (not part of NexusRouter source)
+_research/
+docs/
+
+# Go
+backend/bin/
+backend/dist/
+*.test
+*.out
+coverage.txt
+/nexusrouter
+/nexusrouter.exe
+
+# Go build cache / vendor
+vendor/
+
+# Embedded frontend build output (generated)
+backend/internal/webui/dist/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+*.tsbuildinfo
+*.local
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+master.key
+
+# Data / runtime
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+data/
+.nexusrouter/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+node_modules/
+
+# Local scripts
+refactor.ps1
+refactor2.ps1
+update_github.ps1
