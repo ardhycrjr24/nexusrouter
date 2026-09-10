@@ -18,11 +18,11 @@ type BannerConfig struct {
 }
 
 const logo = `
-  ██   ██ ███████  ██ ██████   ██████  ██    ██ ████████ ███████ ██████
-  ██  ██  ██      ██  ██   ██ ██    ██ ██    ██    ██    ██      ██   ██
-  █████   █████   ██  ██████  ██    ██ ██    ██    ██    █████   ██████
-  ██  ██  ██      ██  ██   ██ ██    ██ ██    ██    ██    ██      ██   ██
-  ██   ██ ███████  ██ ██   ██  ██████   ██████     ██    ███████ ██   ██`
+  ██    ██ ███████ ██    ██ ██    ██  ██████  ██████   ██████  ██    ██ ████████ ███████ ██████
+  ███   ██ ██       ██  ██  ██    ██ ██       ██   ██ ██    ██ ██    ██    ██    ██      ██   ██
+  ██ ██ ██ █████      ██    ██    ██  ██████  ██████  ██    ██ ██    ██    ██    █████   ██████
+  ██   ███ ██       ██  ██  ██    ██       ██ ██   ██ ██    ██ ██    ██    ██    ██      ██   ██
+  ██    ██ ███████ ██    ██  ██████   ██████  ██   ██  ██████   ██████     ██    ███████ ██   ██`
 
 // PrintBanner writes the startup banner and config summary to w. It is a
 // no-op when w is not a terminal, keeping production output clean.
@@ -45,8 +45,8 @@ func PrintBanner(w io.Writer, cfg BannerConfig) {
 
 	versionLine := fmt.Sprintf("  NexusRouter %s", cfg.Version)
 
-	// Box must be wide enough for the widest content row or the logo (~70 chars).
-	const logoWidth = 70
+	// Box must be wide enough for the widest content row or the logo (~92 chars).
+	const logoWidth = 92
 	maxLen := logoWidth
 	if l := len(versionLine); l > maxLen {
 		maxLen = l
