@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, fetchPortalBranding, type BrandingSettings } from "../lib/api";
 import { getPaletteScales } from "../lib/palettes";

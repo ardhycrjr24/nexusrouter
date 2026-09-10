@@ -8,8 +8,8 @@ import {
 } from "lucide-react";
 import { api, type EndpointSettings, type BrandingSettings } from "../lib/api";
 import { ChangelogMarkdown } from "../components/ChangelogMarkdown";
-import { PALETTES, getPaletteScales } from "../lib/palettes";
-import { applyShadeScale, generateShades } from "../lib/color-utils";
+import { PALETTES } from "../lib/palettes";
+import { generateShades } from "../lib/color-utils";
 import { PageHeader } from "../components/Layout";
 import { useUpdateInfo } from "../components/UpdateNotification";
 import { useToast } from "../components/Toast";

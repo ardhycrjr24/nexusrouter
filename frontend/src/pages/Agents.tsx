@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, Trash2, Edit2, Key, Users } from "lucide-react";
+import { Bot, Plus, Trash2, Key } from "lucide-react";
 import { api, type Agent } from "../lib/api";
 import { PageHeader } from "../components/Layout";
 import { useToast } from "../components/Toast";
